@@ -1,2 +1,8 @@
 # COMP3005-Project
-The One.
+
+
+## How to Run:
+
+
+# Video Link:
+
