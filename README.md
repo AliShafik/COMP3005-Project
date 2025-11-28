@@ -1,8 +1,8 @@
 # COMP3005-Project
 
 
-## How to Run:
+# How to Run:
 
 
-# Video Link:
+### Video Link:
 
