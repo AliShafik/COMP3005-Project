@@ -25,7 +25,7 @@ class HealthMetric(Base):
 
     metric_id: Mapped[int] = mapped_column(primary_key=True)
     member_id: Mapped[int] = mapped_column(ForeignKey("Member.member_id"), nullable=False)
-    date_recorded: Mapped[date] = mapped_column(Date, nullable=False)
+    date_recorded: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     weight: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     height: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     heart_rate: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

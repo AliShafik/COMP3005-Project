@@ -4,7 +4,7 @@ import member_functions
 import trainer_functions
 import admin_functions
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import datetime, date
 
 def clear_screen():
 	if os.name == "nt":
@@ -144,7 +144,7 @@ def member_dashboard(session: Session, member_id: int):
 			weight = prompt("Enter weight (kg)", required=False)
 			height = prompt("Enter height (cm)", required=False)
 			heart_rate = prompt("Enter heart rate (bpm)", required=False)
-			current_date = date.today().isoformat()
+			current_date = datetime.today().isoformat()
 			member_functions.input_health_metric(session, member_id, current_date, weight, height, heart_rate)
 		elif c == "3":
 			manage_goal_flow(session, member_id)

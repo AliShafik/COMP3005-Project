@@ -83,7 +83,7 @@ def dashboard(session: Session, member_id: int) -> None:
     latest_metrics = (
         session.query(HealthMetric)
         .filter(HealthMetric.member_id == member_id)
-        .order_by(HealthMetric.metric_id.desc())
+        .order_by(HealthMetric.date_recorded.desc())
         .limit(5)
         .all()
     )
