@@ -5,6 +5,7 @@ import trainer_functions
 import admin_functions
 from sqlalchemy.orm import Session
 from datetime import datetime, date
+from models.schemas import Admin, Trainer, Member
 
 def clear_screen():
 	if os.name == "nt":
@@ -279,9 +280,9 @@ def admin_flow(session: Session):
 			admin_functions.register_admin(session, name)
 		elif choice == "2":
 			name = prompt("Enter your username", True)
-			admin_id = admin_functions.login_admin(session, name)
-			if admin_id:
-				admin_dashboard(session, admin_id)
+			admin = admin_functions.login_admin(session, name)
+			if admin:
+				admin_dashboard(session, admin)
 		elif choice == "0":
 			break
 		else:
@@ -289,7 +290,7 @@ def admin_flow(session: Session):
 			time.sleep(0.6)
 
 # Admin UI
-def admin_dashboard(session: Session, admin_id: int):
+def admin_dashboard(session: Session, admin: Admin):
 	while True:
 		clear_screen()
 		print("Admin Menu")
@@ -300,22 +301,22 @@ def admin_dashboard(session: Session, admin_id: int):
 		print("0) Back")
 		c = prompt("Choice")
 		if c == "1":
-			room_booking_flow(session, admin_id)
+			room_booking_flow(session, admin)
 		elif c == "2":
-			equipment_maintenance_flow(session, admin_id)
+			equipment_maintenance_flow(session, admin)
 		elif c == "3":
-			class_management_flow(session, admin_id)
+			class_management_flow(session, admin)
 		elif c == "4":
-			billing_management_flow(session, admin_id)
+			billing_management_flow(session)
 		elif c == "0":
 			break
 		else:
 			print("Invalid")
 			input("Press Enter to continue...")
 
-def room_booking_flow(session: Session, admin_id: int):
+def room_booking_flow(session: Session, admin: Admin):
 	print("All room bookings:")
-	admin_functions.view_room_bookings(session, admin_id)
+	admin_functions.view_room_bookings(session)
 	while True:
 		more = prompt("Add a room booking? (y/n)", required=True).lower()
 		if more in ("n", "no"):
@@ -328,7 +329,7 @@ def room_booking_flow(session: Session, admin_id: int):
 			end_date = prompt("End date (YYYY-MM-DD)")
 			start_time = prompt("Start time (HH:MM)")
 			end_time = prompt("End time (HH:MM)")
-			rb = admin_functions.room_booking(session, admin_id, room_name, start_date, start_time, end_date, end_time)
+			rb = admin_functions.room_booking(session, admin, room_name, start_date, start_time, end_date, end_time)
 			if rb:
 				print("Room booked (booking id:", getattr(rb, "booking_id", None), ")")
 			else:
@@ -337,11 +338,11 @@ def room_booking_flow(session: Session, admin_id: int):
 			print("Invalid")
 		input("Press Enter to continue...")
 		
-def equipment_maintenance_flow(session: Session, admin_id: int):
+def equipment_maintenance_flow(session: Session, admin: Admin):
 	while True:
 		print("All equipment maintenance records:")
 		print("Equipement ID | Admin ID | Operation | Status")
-		admin_functions.view_equipment_maintenance(session, admin_id)
+		admin_functions.view_equipment_maintenance(admin)
 		print("1) Add record")
 		print("2) Edit record")
 		print("3) Go back")
@@ -350,7 +351,7 @@ def equipment_maintenance_flow(session: Session, admin_id: int):
 		if c == "1":
 			op = prompt("Operation description", required=True)
 			status = prompt("Status (open/closed)", required=True)
-			admin_functions.add_equipment_maintenance(session, admin_id, op, status=status)
+			admin_functions.add_equipment_maintenance(session, admin, op, status=status)
 		elif c == "2":
 			print("Edit equipment maintenance record:")
 			equipment_id = prompt_int("Equipment ID", required=True)
@@ -362,9 +363,9 @@ def equipment_maintenance_flow(session: Session, admin_id: int):
 			print("Invalid")
 		input("Press Enter to continue...")
 
-def class_management_flow(session: Session, admin_id: int):
+def class_management_flow(session: Session, admin: Admin):
 	print("All classes:")
-	admin_functions.view_fitness_classes(session, admin_id)
+	admin_functions.view_fitness_classes(session)
 	while True:
 		more = prompt("Add a fitness class? (y/n)", required=True).lower()
 		if more in ("n", "no"):
@@ -372,6 +373,7 @@ def class_management_flow(session: Session, admin_id: int):
 		if more in ("y", "yes"):
 			trainer_functions.view_trainers(session)
 			trainer_id = prompt_int("Trainer ID")
+			trainer = session.get(Trainer, trainer_id)
 			class_name = prompt("Class name")
 			capacity = prompt_int("Capacity")
 			admin_functions.view_rooms(session)
@@ -380,14 +382,15 @@ def class_management_flow(session: Session, admin_id: int):
 			start_time = prompt("Start time (HH:MM)")
 			end_date = prompt("End date (YYYY-MM-DD)")
 			end_time = prompt("End time (HH:MM)")
-			admin_functions.add_fitness_class(session, admin_id, trainer_id, class_name, capacity, room_name, start_date, start_time, end_date, end_time)
+			admin_functions.add_fitness_class(session, admin, trainer, class_name, capacity, room_name, start_date, start_time, end_date, end_time)
 
-def billing_management_flow(session: Session, admin_id: int):
+def billing_management_flow(session: Session):
 	print("1) Create invoice")
 	print("2) Record payment")
 	sub = prompt("Choice")
 	if sub == "1":
 		member_id = prompt_int("Member ID")
+		member = session.get(Member, member_id)
 		type_b = prompt("Type of billing")
 		amount = prompt("Amount ($)")
 		amount_s = (amount or "").strip()
@@ -395,7 +398,7 @@ def billing_management_flow(session: Session, admin_id: int):
 			amount_f = float(amount_s)
 		else:
 			amount_f = 0.0
-		bp = admin_functions.billing_and_payments(session, action = "create", member_id = member_id, type_of_billing = type_b, amount = amount_f)
+		bp = admin_functions.billing_and_payments(session, action = "create", member = member, type_of_billing = type_b, amount = amount_f)
 		print("Invoice created (id:", getattr(bp, "billing_id", None), ")")
 		input("Press Enter to continue...")
 	elif sub == "2":
