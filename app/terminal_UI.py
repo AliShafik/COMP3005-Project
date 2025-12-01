@@ -152,7 +152,6 @@ def member_dashboard(session: Session, member_id: int):
 			manage_pt_session_flow(session, member_id)
 		elif c == "5":
 			register_fitness_class_flow(session, member_id)
-			print("[PLACEHOLDER] Register for class — implement in classes module")
 		elif c == "0":
 			break
 		else:
@@ -205,7 +204,7 @@ def register_fitness_class_flow(session: Session, member_id: int):
 			break
 		if choice in ("y", "yes"):
 			class_id = prompt_int("Class ID", required=True)
-			success = member_functions.register_for_class(session, member_id, class_id)
+			success = member_functions.class_registration(session, member_id, class_id)
 			if success:
 				print("Registered for class.")
 			else:

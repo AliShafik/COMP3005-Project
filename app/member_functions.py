@@ -122,6 +122,21 @@ def dashboard(session: Session, member_id: int) -> None:
         .all()
     )
 
+    # 5) Upcoming group classes:
+    #    GroupMember → FitnessClass → RoomBooking (+ Trainer), where start_time is in the future
+    upcoming_classes = (
+        session.query(FitnessClass, RoomBooking, Trainer)
+        .join(GroupMember, GroupMember.class_id == FitnessClass.class_id)
+        .join(RoomBooking, FitnessClass.booking_id == RoomBooking.booking_id)
+        .join(Trainer, FitnessClass.trainer_id == Trainer.trainer_id)
+        .filter(
+            GroupMember.member_id == member_id,
+            RoomBooking.start_time >= now
+        )
+        .order_by(RoomBooking.start_time.asc())
+        .all()
+    )
+    
     # ==== PRINT DASHBOARD (terminal UI can format this however you like) ====
     print("\n====== DASHBOARD ======")
 
@@ -155,6 +170,16 @@ def dashboard(session: Session, member_id: int) -> None:
                 f"with {trainer.name} (session_id={ts.session_id})"
             )
 
+    print("\nUpcoming Group Classes:")
+    if not upcoming_classes:
+        print("  No upcoming classes.")
+    else:
+        for fitness_class, booking, trainer in upcoming_classes:
+            print(
+                f"  {booking.start_time}–{booking.end_time} "
+                f"{fitness_class.class_name} with {trainer.name} "
+                f"(class_id={fitness_class.class_id})"
+            )
     print("=======================\n")
     return
 
