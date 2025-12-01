@@ -79,12 +79,13 @@ def input_health_metric(session: Session, member_id: int, date_recorded: date, w
 def dashboard(session: Session, member_id: int) -> None:
     now = datetime.now()
 
-    # 1) Latest health stats (most recent HealthMetric row for this member)
-    latest_metric = (
+    # 1) Latest 5 health stats (most recent first)
+    latest_metrics = (
         session.query(HealthMetric)
         .filter(HealthMetric.member_id == member_id)
         .order_by(HealthMetric.date_recorded.desc())
-        .first()
+        .limit(5)
+        .all()
     )
 
     # 2) Active goals (all HealthGoal rows for this member, joined to GoalType for details)
@@ -140,16 +141,17 @@ def dashboard(session: Session, member_id: int) -> None:
     # ==== PRINT DASHBOARD (terminal UI can format this however you like) ====
     print("\n====== DASHBOARD ======")
 
-    print("\nLatest Health Stats:")
-    if latest_metric is None:
+    print("\nLatest Health Metrics (up to 5, most recent first):")
+    if not latest_metrics:
         print("  No health metrics recorded yet.")
     else:
-        print(
-            f"  Date: {latest_metric.date_recorded}, "
-            f"Weight: {latest_metric.weight}, "
-            f"Height: {latest_metric.height}, "
-            f"Heart rate: {latest_metric.heart_rate}"
-        )
+        for metric in latest_metrics:
+            print(
+                f"  Date: {metric.date_recorded}, "
+                f"Weight: {metric.weight}, "
+                f"Height: {metric.height}, "
+                f"Heart rate: {metric.heart_rate}"
+            )
 
     print("\nActive Goals:")
     if not active_goals:
