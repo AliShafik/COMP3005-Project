@@ -134,11 +134,11 @@ def prepopulate_all(session):
     # ----------------------
     now = datetime.now()
     rb1 = RoomBooking(admin_id=admin1.admin_id, room_id=r1.room_id,
-                      is_booked=True,
+                      is_booked=False,
                       start_time=now + timedelta(hours=1),
                       end_time=now + timedelta(hours=2))
     rb2 = RoomBooking(admin_id=admin1.admin_id, room_id=r2.room_id,
-                      is_booked=True,
+                      is_booked=False,
                       start_time=now + timedelta(hours=3),
                       end_time=now + timedelta(hours=4))
     session.add_all([rb1, rb2])
