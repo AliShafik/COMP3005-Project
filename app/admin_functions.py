@@ -63,7 +63,12 @@ def room_booking(session: Session, admin_id: int, room_name: str, start_date: st
     return rb
 
 def view_equipment_maintenance(session: Session, admin_id: int):
-    maintenances = session.query(EquipmentManagement).filter(EquipmentManagement.admin_id == admin_id).order_by(EquipmentManagement.equipment_id.desc()).all()
+    admin = session.get(Admin, admin_id)
+    if not admin:
+        print("Admin not found.")
+        return
+    
+    maintenances = sorted(admin.equipment_operations, key=lambda m: m.equipment_id, reverse=True)
     for maintenance in maintenances:
         print(maintenance)
 
@@ -121,7 +126,7 @@ def billing_and_payments(session: Session, action = "create", member_id = None, 
         bp = BillingPayment(member_id = member_id, type_of_billing = type_of_billing, amount_due = amount, status = "due")
         session.add(bp)
         session.commit()
-        return bp
+        return bp   
     elif action == "pay":
         bp = session.query(BillingPayment).filter(BillingPayment.billing_id == billing_id).first()
         if not bp:
