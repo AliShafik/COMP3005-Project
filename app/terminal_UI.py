@@ -173,27 +173,42 @@ def manage_goal_flow(session: Session, member_id: int):
 			print("Invalid")
 
 def manage_pt_session_flow(session: Session, member_id: int):
-	print("Manage Personal Training Sessions")
-	member_functions.view_pt_sessions(session, member_id)
-	while True:
-		choice = prompt("Book a PT session? (y/n)", required=True).lower()
-		if choice in ("n", "no"):
-			break
-		if choice in ("y", "yes"):
-			print("Available trainers:")
-			trainer_functions.view_trainers(session)
-			trainer_id = prompt_int("Trainer ID", required=True)
-			start_time = prompt("Start time (YYYY-MM-DD HH:MM)", required=True)
-			end_time = prompt("End time (YYYY-MM-DD HH:MM)", required=True)
-			member_functions.view_room_bookings(session, start_time=start_time, end_time=end_time)
-			booking_id = prompt_int("Choose a booking ID from the above available room bookings", required=True)
-			pt_session = member_functions.book_pt_session(session, member_id, trainer_id, start_time, end_time, booking_id)
-			if pt_session:
-				print("PT session booked (id:", getattr(pt_session, "session_id", None), ")")
-			else:
-				print("Unable to book PT session — conflict or error.")
-		else:
-			print("Invalid")
+    print("Manage Personal Training Sessions")
+    member_functions.view_pt_sessions(session, member_id)
+
+    while True:
+        choice = prompt("Book a PT session? (y/n)", required=True).lower()
+
+        if choice in ("n", "no"):
+            break
+
+        if choice in ("y", "yes"):
+            print("Available trainers:")
+            trainer_functions.view_trainers(session)
+            trainer_id = prompt_int("Trainer ID", required=True)
+
+            print("Available room bookings:")
+            # assumes this shows future/free bookings, or all bookings
+            member_functions.view_room_bookings(session)
+
+            booking_id = prompt_int(
+                "Choose a booking ID from the above available room bookings",
+                required=True,
+            )
+
+            pt_session = member_functions.book_pt_session(
+                session=session,
+                member_id=member_id,
+                trainer_id=trainer_id,
+                booking_id=booking_id,
+            )
+
+            if pt_session:
+                print("PT session booked (id:", getattr(pt_session, "session_id", None), ")")
+            else:
+                print("Unable to book PT session — conflict or error.")
+        else:
+            print("Invalid")
 
 def register_fitness_class_flow(session: Session, member_id: int):
 	print("Register for Fitness Classes")

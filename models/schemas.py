@@ -85,7 +85,7 @@ class EquipmentManagement(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
     def __repr__(self) -> str:
-        return f"Equipment({self.equipment_id}, admin={self.admin_id}, op={self.admin_operation!r})"
+        return f"Equipment({self.equipment_id}, admin={self.admin_id}, op={self.admin_operation!r}, status={self.status!r}1)"
 
 class Room(Base):
     __tablename__ = "Room"

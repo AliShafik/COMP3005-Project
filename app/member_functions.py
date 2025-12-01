@@ -188,7 +188,7 @@ def dashboard(session: Session, member_id: int) -> None:
 
 # DEFAULT_ADMIN_ID_FOR_BOOKINGS = 1  # adjust if needed
 
-def view_room_bookings(session: Session, start_time: datetime, end_time: datetime):
+def view_room_bookings(session: Session):
     bookings = (session.query(RoomBooking, Room).join(Room, RoomBooking.room_id == Room.room_id).filter().order_by(RoomBooking.start_time.asc()).all())
 
     #If no bookings found
@@ -227,42 +227,39 @@ def view_pt_sessions(session: Session, member_id: int):
             f"End: {booking.end_time}"
         )
 
-def book_pt_session(session: Session, member_id: int, trainer_id: int, start_time: datetime, end_time: datetime, booking_id: int):
-    
-    trainer = session.query(Trainer).filter(Trainer.trainer_id == trainer_id).first()
-    if trainer is None:
-        print("Trainer not found.")
-        return None
+def book_pt_session(
+    session: Session,
+    member_id: int,
+    trainer_id: int,
+    booking_id: int
+):
 
-    # resolve time window (from booking if given, else from args)
-    if booking_id is not None:
-        booking = (session.query(RoomBooking).filter(RoomBooking.booking_id == booking_id).first())
-        if booking is None:
-            print("Booking not found.")
-            return None
-        desired_start, desired_end = booking.start_time, booking.end_time
-    else:
-        print("No booking ID provided")
-        return None
+    # 2) Check booking exists
+    booking = (
+        session.query(RoomBooking)
+        .filter(RoomBooking.booking_id == booking_id)
+        .first()
+    )
 
-    if desired_end <= desired_start:
-        print("End time must be after start time.")
-        return None
+    # 3) Use booking's time window as the PT session time
+    desired_start = booking.start_time
+    desired_end = booking.end_time
 
-    # within availability?
+    # 4) Check trainer availability for that whole time window
     availability = (
         session.query(Availability)
         .filter(
             Availability.trainer_id == trainer_id,
             Availability.start_time <= desired_start,
             Availability.end_time >= desired_end,
-        ).first()
+        )
+        .first()
     )
     if availability is None:
-        print("Time not within trainer availability.")
+        print("Trainer is not available for that booking time.")
         return None
 
-    # no trainer conflict in pt sessions
+    # 5) Check for conflicts with other PT sessions
     trainer_pt_conflict = (
         session.query(TrainingSession)
         .join(RoomBooking, TrainingSession.booking_id == RoomBooking.booking_id)
@@ -274,10 +271,10 @@ def book_pt_session(session: Session, member_id: int, trainer_id: int, start_tim
         .first()
     )
     if trainer_pt_conflict is not None:
-        print("Trainer has another session at that time.")
+        print("Trainer already has another PT session at that time.")
         return None
 
-    # no trainer conflict in classes
+    # 6) Check for conflicts with fitness classes
     trainer_class_conflict = (
         session.query(FitnessClass)
         .join(RoomBooking, FitnessClass.booking_id == RoomBooking.booking_id)
@@ -289,12 +286,19 @@ def book_pt_session(session: Session, member_id: int, trainer_id: int, start_tim
         .first()
     )
     if trainer_class_conflict is not None:
-        print("Trainer has another class at that time.")
+        print("Trainer is teaching a class at that time.")
         return None
-    
-    pt_session = TrainingSession(trainer_id=trainer_id, booking_id=booking.booking_id, member_id=member_id)
+
+    # 7) All good → create the PT session tied to that booking
+    pt_session = TrainingSession(
+        trainer_id=trainer_id,
+        booking_id=booking.booking_id,
+        member_id=member_id,
+    )
+
     session.add(pt_session)
     session.commit()
+    print("PT session booked successfully.")
     return pt_session
 
 def view_available_classes(session: Session):
