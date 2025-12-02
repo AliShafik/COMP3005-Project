@@ -24,31 +24,30 @@ def login_member(session: Session, name: str):
     else:
         print("Member not found. Please register first.")
         return None
-    
+
 def view_members(session: Session):
     members = session.query(Member).all()
     for member in members:
         print(member)
 
-def update_personal_details(session: Session, id: int, name="null", date_of_birth = "null", gender = "null", contact = "null"):
-
+def update_personal_details(session: Session, member: Member, name=None, date_of_birth=None, gender=None, contact=None):
     changed = False
-    member = session.query(Member).filter(Member.member_id == id).first()
-    if(name != "null"):
+    if name:
         member.name = name
         changed = True
-    if(date_of_birth != "null"):
-        member.date_of_birth = date_of_birth
-        changed = True
-    if(gender != "null"):
+    if date_of_birth:
+        if date_of_birth != "":
+            member.date_of_birth = date_of_birth
+            changed = True
+    if gender:
         member.gender = gender
         changed = True
-    if(contact != "null"):
+    if contact:
         member.contact_detail = contact
         changed = True
-    if(changed == True):
+    if changed:
         session.commit()
-    return
+
 
 def view_fitness_goals(session: Session, member: Member):
     if not member:
@@ -209,6 +208,57 @@ def view_pt_sessions(session: Session, member: Member):
             f"Start: {training_session.booking.start_time}, "
             f"End: {training_session.booking.end_time}"
         )
+
+def reschedule_pt_session(session: Session, member: Member, training_session: TrainingSession, new_booking: RoomBooking, new_trainer: Trainer = None):
+    if not member:
+        print("Member not found.")
+        return None
+    if not training_session or training_session.member != member:
+        print("PT session not found for this member.")
+        return None
+    if not new_booking:
+        print("New booking not found.")
+        return None
+
+    # Choose which trainer to use
+    trainer = new_trainer if new_trainer is not None else training_session.trainer
+    if not trainer:
+        print("Trainer not found.")
+        return None
+
+    desired_start = new_booking.start_time
+    desired_end = new_booking.end_time
+
+    # Check trainer availability for the new time window
+    for availability in trainer.availability:
+        if availability.start_time <= desired_start and availability.end_time >= desired_end:
+            break
+    else:
+        print("Trainer is not available for the new booking time.")
+        return None
+
+    # Check for conflicts with other PT sessions (exclude the session being rescheduled)
+    for other_ts in trainer.sessions:
+        if other_ts.session_id == training_session.session_id:
+            continue
+        other = other_ts.booking
+        if other.start_time < desired_end and other.end_time > desired_start:
+            print("Trainer already has another PT session at that time.")
+            return None
+
+    # Check for conflicts with fitness classes
+    for fitness_class in trainer.classes:
+        other = fitness_class.booking
+        if other.start_time < desired_end and other.end_time > desired_start:
+            print("Trainer is teaching a class at that time.")
+            return None
+
+    # All checks passed → update the session's booking and trainer (if changed)
+    training_session.booking = new_booking
+    training_session.trainer = trainer
+    session.commit()
+    print("PT session rescheduled successfully.")
+    return training_session
 
 def book_pt_session(session: Session, member: Member, trainer: Trainer, booking: RoomBooking):
     if not member or not trainer or not booking:

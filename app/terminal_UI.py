@@ -5,7 +5,7 @@ import trainer_functions
 import admin_functions
 from sqlalchemy.orm import Session
 from datetime import datetime, date
-from models.schemas import Admin, Trainer, Member, RoomBooking, FitnessClass
+from models.schemas import Admin, Trainer, Member, RoomBooking, FitnessClass, TrainingSession
 
 def clear_screen():
 	if os.name == "nt":
@@ -138,10 +138,19 @@ def member_dashboard(session: Session, member: Member):
 		print("3) Manage Goals")
 		print("4) Manage PT Session")
 		print("5) Manage Classes")
+		print("6) Dashboard")
 		print("0) Logout")
 		c = prompt("Choice")
 		if c == "1":
-			member_functions.dashboard(session, member)
+			print("Current name: ", member.name)
+			print("Current date of birth: ", member.date_of_birth)
+			print("Current gender: ", member.gender)
+			print("Current contact details: ", member.contact_detail)
+			name = prompt("Enter new name (leave empty for nothing)", required=False)
+			dob = prompt("Enter new date of birth (leave empty for nothing)", required=False)
+			gender = prompt("Enter new gender (leave empty for nothing)", required=False)
+			contact = prompt("Enter new contact details (leave empty for nothing)", required=False)
+			member_functions.update_personal_details(session, member, name, dob, gender, contact)
 		elif c == "2":
 			weight = prompt("Enter weight (kg)", required=False)
 			height = prompt("Enter height (cm)", required=False)
@@ -154,6 +163,8 @@ def member_dashboard(session: Session, member: Member):
 			manage_pt_session_flow(session, member)
 		elif c == "5":
 			register_fitness_class_flow(session, member)
+		elif c == "6":
+			member_functions.dashboard(session, member)
 		elif c == "0":
 			break
 		else:
@@ -179,18 +190,21 @@ def manage_pt_session_flow(session: Session, member: Member):
 	member_functions.view_pt_sessions(session, member)
 
 	while True:
-		choice = prompt("Book a PT session? (y/n)", required=True).lower()
+		print("\nActions:")
+		print("1) Book a PT session")
+		print("2) Reschedule an existing PT session")
+		print("0) Back")
+		choice = prompt("Choice", required=True).lower()
 
-		if choice in ("n", "no"):
+		if choice in ("0"):
 			break
 
-		if choice in ("y", "yes"):
+		if choice in ("1"):
 			print("Available trainers:")
 			trainer_functions.view_trainers(session)
 			trainer_id = prompt_int("Trainer ID", required=True)
 			trainer = session.get(Trainer, trainer_id)
 			print("Available room bookings:")
-			# assumes this shows future/free bookings, or all bookings
 			member_functions.view_room_bookings(session)
 
 			booking_id = prompt_int("Choose a booking ID from the above available room bookings", required=True)
@@ -201,8 +215,34 @@ def manage_pt_session_flow(session: Session, member: Member):
 				print("PT session booked (id:", getattr(pt_session, "session_id", None), ")")
 			else:
 				print("Unable to book PT session — conflict or error.")
+		elif choice in ("2"):
+			member_functions.view_pt_sessions(session, member)
+			session_id = prompt_int("Enter Session ID to reschedule", required=True)
+			training_session = session.get(TrainingSession, session_id)
+			if not training_session or training_session.member != member:
+				print("PT session not found for this member.")
+			else:
+				print("Available trainers (choose trainer for the rescheduled session):")
+				trainer_functions.view_trainers(session)
+				trainer_id = prompt_int("Trainer ID", required=True)
+				new_trainer = session.get(Trainer, trainer_id)
+				if not new_trainer:
+					print("Trainer not found.")
+					input("Press Enter to continue...")
+					continue
+
+				print("Available room bookings:")
+				member_functions.view_room_bookings(session)
+				booking_id = prompt_int("Choose a new booking ID from the above", required=True)
+				new_booking = session.get(RoomBooking, booking_id)
+				res = member_functions.reschedule_pt_session(session, member, training_session, new_booking, new_trainer)
+				if res:
+					print("PT session rescheduled (id:", getattr(res, "session_id", None), ")")
+				else:
+					print("Unable to reschedule PT session — conflict or/or error.")
 		else:
 			print("Invalid")
+		input("Press Enter to continue...")
 
 def register_fitness_class_flow(session: Session, member: Member):
 	print("Register for Fitness Classes")
@@ -236,6 +276,7 @@ def trainer_dashboard(session: Session, trainer: Trainer):
 			trainer_functions.schedule_view(session, trainer)
 			input("Press Enter to continue...")
 		elif c == "3":
+			member_functions.view_members(session)
 			name = prompt("Member name to lookup")
 			trainer_functions.member_lookup(session, name)
 			input("Press Enter to continue...")

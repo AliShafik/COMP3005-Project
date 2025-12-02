@@ -6,7 +6,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.schemas import Base, Member, Trainer, Admin, Room, TrainingSession, FitnessClass, RoomBooking, GroupMember, HealthGoal, GoalType, HealthMetric, BillingPayment, EquipmentManagement, Availability
 from datetime import date, datetime, timedelta
 import terminal_UI
-import glob
 from pathlib import Path
 
 def reset_db(conn):
