@@ -49,14 +49,14 @@ def main():
     session = Session()
 
     with Session() as session:
-        # RoomA = Room(room_name="Room A")
-        # RoomB = Room(room_name="Room B")
-        # RoomC = Room(room_name="Room C")
-        # session.add_all([RoomA, RoomB, RoomC])
-        # session.commit()
+        RoomA = Room(room_name="Room A")
+        RoomB = Room(room_name="Room B")
+        RoomC = Room(room_name="Room C")
+        session.add_all([RoomA, RoomB, RoomC])
+        session.commit()
 
         # Run your terminal UI, passing the session
-        prepopulate_all(session)
+        #prepopulate_all(session)
         terminal_UI.main_menu(session)
 
     session.close()

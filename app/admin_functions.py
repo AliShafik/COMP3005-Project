@@ -55,14 +55,14 @@ def room_booking(session: Session, admin: Admin, room_name: str, start_date: str
         session.add(room)
         session.flush()
 
-    for rb in room.bookings:
-        if rb.is_booked and rb.start_time < end_dt and rb.end_time > start_dt:
+    for booking in room.bookings:
+        if booking.is_booked and booking.start_time < end_dt and booking.end_time > start_dt:
             return None
 
-    rb = RoomBooking(admin = admin, room = room, is_booked = False, start_time = start_dt, end_time = end_dt)
-    session.add(rb)
+    booking = RoomBooking(admin = admin, room = room, is_booked = False, start_time = start_dt, end_time = end_dt)
+    session.add(booking)
     session.commit()
-    return rb
+    return booking
 
 # Equipment Maintenance
 
@@ -141,3 +141,8 @@ def billing_and_payments(session: Session, action="create", member: Member = Non
         session.commit()
         return bp
     return None
+
+def view_billings(session: Session):
+    billings = session.query(BillingPayment).all()
+    for billing in billings:
+        print(billing)

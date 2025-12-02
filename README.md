@@ -11,10 +11,10 @@
 - **PostgreSQL:** PostgreSQL server installed and running locally (or reachable remotely).
 - **Tools:** `psql` command-line client (optional but helpful for DB setup).
 
-**GitHub — Clone & Local Setup (quick)**
+**GitHub — Clone & Local Setup**
 ```powershell
 https://github.com/AliShafik/COMP3005-Project.git
-cd <repo-name>
+cd COMP30005-Project
 ```
 
 **Quick Setup**

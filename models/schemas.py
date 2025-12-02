@@ -100,7 +100,7 @@ class Admin(Base):
 
     # Relationships
     equipment_operations: Mapped[list["EquipmentManagement"]] = relationship("EquipmentManagement", back_populates="admin", cascade="all, delete-orphan")
-    room_bookings: Mapped[list["RoomBooking"]] = relationship("RoomBooking", back_populates="admin", cascade="all, delete-orphan")
+    bookings: Mapped[list["RoomBooking"]] = relationship("RoomBooking", back_populates="admin", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"Admin({self.admin_id}, {self.name!r})"
@@ -145,7 +145,7 @@ class RoomBooking(Base):
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     # Relationships
-    admin: Mapped["Admin"] = relationship("Admin", back_populates="room_bookings")
+    admin: Mapped["Admin"] = relationship("Admin", back_populates="bookings")
     room: Mapped["Room"] = relationship("Room", back_populates="bookings")
     fitness_classes: Mapped[list["FitnessClass"]] = relationship("FitnessClass", back_populates="booking", cascade="all, delete-orphan")
     training_sessions: Mapped[list["TrainingSession"]] = relationship("TrainingSession", back_populates="booking", cascade="all, delete-orphan")
@@ -156,7 +156,7 @@ class RoomBooking(Base):
     )
 
     def __repr__(self) -> str:
-        return f"RoomBooking({self.booking_id}, room={self.room_id}, {self.start_time}–{self.end_time})"
+        return f"RoomBooking({self.booking_id}, room={self.room_id}, {self.start_time}-{self.end_time})"
 
 class Trainer(Base):
     __tablename__ = "Trainer"

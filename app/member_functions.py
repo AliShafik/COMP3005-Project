@@ -300,20 +300,21 @@ def book_pt_session(session: Session, member: Member, trainer: Trainer, booking:
     return pt_session
 
 def view_available_classes(session: Session):
-    #Try to use view first
+    # Try to use view first
     try:
         result = session.execute(text("SELECT * FROM view_available_classes ORDER BY class_name ASC"))
-        rows = result.fetchall()
+        rows = result.mappings().all()
         if not rows:
             print("No available classes.")
             return
-        keys = result.keys()
-        for row in rows:
-            if hasattr(row, '_mapping'):
-                mapping = row._mapping
-            else:
-                mapping = dict(zip(keys, row))
-            print(f"Class ID: {mapping.get('class_id')}, Trainer ID: {mapping.get('trainer_id')}, Booking ID: {mapping.get('booking_id')}, Name: {mapping.get('class_name')}, Capacity: {mapping.get('num_signed_up')}/{mapping.get('capacity')}")
+        for mapping in rows:
+            print(
+                f"Class ID: {mapping.get('class_id')}, "
+                f"Trainer ID: {mapping.get('trainer_id')}, "
+                f"Booking ID: {mapping.get('booking_id')}, "
+                f"Name: {mapping.get('class_name')}, "
+                f"Capacity: {mapping.get('num_signed_up')}/{mapping.get('capacity')}"
+            )
         return
     except Exception as e:
         print("View not available or failed; falling back to table query.", e)

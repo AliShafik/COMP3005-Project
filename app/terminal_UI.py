@@ -5,7 +5,7 @@ import trainer_functions
 import admin_functions
 from sqlalchemy.orm import Session
 from datetime import datetime, date
-from models.schemas import Admin, Trainer, Member, RoomBooking, FitnessClass, TrainingSession
+from models.schemas import Admin, Trainer, Member, RoomBooking, FitnessClass, TrainingSession, BillingPayment
 
 def clear_screen():
 	if os.name == "nt":
@@ -104,7 +104,7 @@ def member_flow(session: Session):
 			break
 		else:
 			print("Invalid")
-			time.sleep(0.6)
+		input("Press Enter to continue...")
 
 def trainer_flow(session: Session):
 	while True:
@@ -127,7 +127,7 @@ def trainer_flow(session: Session):
 			break
 		else:
 			print("Invalid")
-			time.sleep(0.6)
+		input("Press Enter to continue...")
 
 def member_dashboard(session: Session, member: Member):
 	while True:
@@ -184,6 +184,7 @@ def manage_goal_flow(session: Session, member: Member):
 			member_functions.add_fitness_goals(session, member, description, target)
 		else:
 			print("Invalid")
+		input("Press Enter to continue...")
 
 def manage_pt_session_flow(session: Session, member: Member):
 	print("Manage Personal Training Sessions")
@@ -259,6 +260,7 @@ def register_fitness_class_flow(session: Session, member: Member):
 				print("Registered for class.")
 			else:
 				print("Unable to register — class may be full")
+		input("Press Enter to continue...")
 
 # Trainer UI
 def trainer_dashboard(session: Session, trainer: Trainer):
@@ -284,7 +286,7 @@ def trainer_dashboard(session: Session, trainer: Trainer):
 			break
 		else:
 			print("Invalid")
-			input("Press Enter to continue...")
+		input("Press Enter to continue...")
 
 def availability_flow(session: Session, trainer: Trainer):
 	print("Current Availability:")
@@ -322,7 +324,7 @@ def admin_flow(session: Session):
 			break
 		else:
 			print("Invalid")
-			time.sleep(0.6)
+		input("Press Enter to continue...")
 
 # Admin UI
 def admin_dashboard(session: Session, admin: Admin):
@@ -347,7 +349,7 @@ def admin_dashboard(session: Session, admin: Admin):
 			break
 		else:
 			print("Invalid")
-			input("Press Enter to continue...")
+		input("Press Enter to continue...")
 
 def room_booking_flow(session: Session, admin: Admin):
 	print("All room bookings:")
@@ -418,30 +420,38 @@ def class_management_flow(session: Session, admin: Admin):
 			end_date = prompt("End date (YYYY-MM-DD)")
 			end_time = prompt("End time (HH:MM)")
 			admin_functions.add_fitness_class(session, admin, trainer, class_name, capacity, room_name, start_date, start_time, end_date, end_time)
+		input("Press Enter to continue...")
 
 def billing_management_flow(session: Session):
-	print("1) Create invoice")
-	print("2) Record payment")
-	sub = prompt("Choice")
-	if sub == "1":
-		member_id = prompt_int("Member ID")
-		member = session.get(Member, member_id)
-		type_b = prompt("Type of billing")
-		amount = prompt("Amount ($)")
-		amount_s = (amount or "").strip()
-		if amount_s.replace('.', '', 1).lstrip('+-').isdigit():
-			amount_f = float(amount_s)
+	while True:
+		clear_screen()
+		print("1) Create invoice")
+		print("2) Record payment")
+		print("3) View all invoices")
+		print("4) Go back")
+		sub = prompt("Choice")
+		if sub == "1":
+			member_id = prompt_int("Member ID")
+			member = session.get(Member, member_id)
+			type_b = prompt("Type of billing")
+			amount = prompt("Amount ($)")
+			amount_s = (amount or "").strip()
+			if amount_s.replace('.', '', 1).lstrip('+-').isdigit():
+				amount_f = float(amount_s)
+			else:
+				amount_f = 0.0
+			bp = admin_functions.billing_and_payments(session, action = "create", member = member, type_of_billing = type_b, amount = amount_f)
+			print("Invoice created (id:", getattr(bp, "billing_id", None), ")")
+		elif sub == "2":
+			billing_id = prompt_int("Billing ID")
+			method = prompt("Payment method")
+			bp = admin_functions.billing_and_payments(session, action = "pay", billing_id = billing_id, payment_method = method)
+			if bp:
+				print("Payment recorded.")
+			else:
+				print("Billing record not found.")
+		elif sub == "3":
+			admin_functions.view_billings(session)
 		else:
-			amount_f = 0.0
-		bp = admin_functions.billing_and_payments(session, action = "create", member = member, type_of_billing = type_b, amount = amount_f)
-		print("Invoice created (id:", getattr(bp, "billing_id", None), ")")
-		input("Press Enter to continue...")
-	elif sub == "2":
-		billing_id = prompt_int("Billing ID")
-		method = prompt("Payment method")
-		bp = admin_functions.billing_and_payments(session, action = "pay", billing_id = billing_id, payment_method = method)
-		if bp:
-			print("Payment recorded.")
-		else:
-			print("Billing record not found.")
+			print("Invalid")
 		input("Press Enter to continue...")
