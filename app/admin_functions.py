@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 import sys, os
 import datetime
 
@@ -55,9 +56,10 @@ def room_booking(session: Session, admin: Admin, room_name: str, start_date: str
         session.add(room)
         session.flush()
 
-    for booking in room.bookings:
-        if booking.is_booked and booking.start_time < end_dt and booking.end_time > start_dt:
-            return None
+    conflict = session.query(RoomBooking).filter(
+        RoomBooking.room_id == room.room_id, or_(RoomBooking.is_booked == True, and_(RoomBooking.start_time < end_dt, RoomBooking.end_time > start_dt))).first()
+    if conflict:
+        return None
 
     booking = RoomBooking(admin = admin, room = room, is_booked = False, start_time = start_dt, end_time = end_dt)
     session.add(booking)
@@ -120,6 +122,31 @@ def add_fitness_class(session: Session, admin: Admin, trainer: Trainer, class_na
         print("Error: Trainer not found.")
         return None
     
+    start_dt = datetime.datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
+    end_dt = datetime.datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M")
+
+    # 4) Check trainer availability for that whole time window
+    for availability in trainer.availability:
+        if availability.start_time <= start_dt and availability.end_time >= end_dt:
+            break
+    else:
+        print("Trainer is not available for that booking time.")
+        return None
+
+    # 5) Check for conflicts with other PT sessions
+    for training_session in trainer.sessions:
+        other = training_session.booking
+        if other.start_time < end_dt and other.end_time > start_dt:
+            print("Trainer already has another PT session at that time.")
+            return None
+
+    # 6) Check for conflicts with fitness classes
+    for fitness_class in trainer.classes:
+        other = fitness_class.booking
+        if other.start_time < end_dt and other.end_time > start_dt:
+            print("Trainer is teaching a class at that time.")
+            return None
+
     fc = FitnessClass(trainer = trainer, booking = rb, class_name = class_name, capacity = capacity, num_signed_up = 0)
     session.add(fc)
     session.commit()

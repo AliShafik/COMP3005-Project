@@ -48,6 +48,13 @@ def update_personal_details(session: Session, member: Member, name=None, date_of
     if changed:
         session.commit()
 
+def view_health_metrics(session: Session, member: Member):
+    if not member:
+        print("Member not found.")
+        return
+
+    for health_metric in member.health_metrics:
+        print(health_metric)
 
 def view_fitness_goals(session: Session, member: Member):
     if not member:
@@ -254,6 +261,8 @@ def reschedule_pt_session(session: Session, member: Member, training_session: Tr
             return None
 
     # All checks passed → update the session's booking and trainer (if changed)
+    training_session.booking.is_booked = False
+    new_booking.is_booked = True
     training_session.booking = new_booking
     training_session.trainer = trainer
     session.commit()
@@ -293,6 +302,7 @@ def book_pt_session(session: Session, member: Member, trainer: Trainer, booking:
 
     # 7) All good → create the PT session tied to that booking
     pt_session = TrainingSession(trainer=trainer, booking=booking, member=member)
+    booking.is_booked = True
 
     session.add(pt_session)
     session.commit()

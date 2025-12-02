@@ -119,8 +119,7 @@ def trainer_flow(session: Session):
 			trainer_functions.register_trainer(session, name)
 		elif choice == "2":
 			name = prompt("Enter your username", True)
-			trainer_id = trainer_functions.login_trainer(session, name)
-			trainer = session.get(Trainer, trainer_id)
+			trainer = trainer_functions.login_trainer(session, name)
 			if trainer:
 				trainer_dashboard(session, trainer)
 		elif choice == "0":
@@ -134,7 +133,7 @@ def member_dashboard(session: Session, member: Member):
 		clear_screen()
 		print("Member Dashboard")
 		print("1) View / Edit Profile")
-		print("2) Manage Health Metrics")
+		print("2) Add Health Metrics")
 		print("3) Manage Goals")
 		print("4) Manage PT Session")
 		print("5) Manage Classes")
@@ -152,11 +151,7 @@ def member_dashboard(session: Session, member: Member):
 			contact = prompt("Enter new contact details (leave empty for nothing)", required=False)
 			member_functions.update_personal_details(session, member, name, dob, gender, contact)
 		elif c == "2":
-			weight = prompt("Enter weight (kg)", required=False)
-			height = prompt("Enter height (cm)", required=False)
-			heart_rate = prompt("Enter heart rate (bpm)", required=False)
-			current_date = datetime.today().isoformat()
-			member_functions.input_health_metric(session, member, current_date, weight, height, heart_rate)
+			manage_health_metrics(session, member)
 		elif c == "3":
 			manage_goal_flow(session, member)
 		elif c == "4":
@@ -167,6 +162,23 @@ def member_dashboard(session: Session, member: Member):
 			member_functions.dashboard(session, member)
 		elif c == "0":
 			break
+		else:
+			print("Invalid")
+		input("Press Enter to continue...")
+
+def manage_health_metrics(session: Session, member: Member):
+	print("Current Health Metrics:")
+	member_functions.view_health_metrics(session, member)
+	while True:
+		choice = prompt("Add a health metric? (y/n)", required=True).lower()
+		if choice in ("n", "no"):
+			break
+		if choice in ("y", "yes"):
+			weight = prompt("Enter weight (kg)", required=False)
+			height = prompt("Enter height (cm)", required=False)
+			heart_rate = prompt("Enter heart rate (bpm)", required=False)
+			current_date = datetime.today().isoformat()
+			member_functions.input_health_metric(session, member, current_date, weight, height, heart_rate)
 		else:
 			print("Invalid")
 		input("Press Enter to continue...")
@@ -276,12 +288,10 @@ def trainer_dashboard(session: Session, trainer: Trainer):
 			availability_flow(session, trainer)
 		elif c == "2":
 			trainer_functions.schedule_view(session, trainer)
-			input("Press Enter to continue...")
 		elif c == "3":
 			member_functions.view_members(session)
 			name = prompt("Member name to lookup")
 			trainer_functions.member_lookup(session, name)
-			input("Press Enter to continue...")
 		elif c == "0":
 			break
 		else:
@@ -433,6 +443,9 @@ def billing_management_flow(session: Session):
 		if sub == "1":
 			member_id = prompt_int("Member ID")
 			member = session.get(Member, member_id)
+			if not member:
+				print("Member doesn't exist")
+				return 
 			type_b = prompt("Type of billing")
 			amount = prompt("Amount ($)")
 			amount_s = (amount or "").strip()

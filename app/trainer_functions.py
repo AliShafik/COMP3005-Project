@@ -21,7 +21,7 @@ def login_trainer(session: Session, name: str):
     trainer = session.query(Trainer).filter(Trainer.name == name).first()
     if trainer:
         print(f"Welcome back, {trainer.name}!")
-        return trainer.trainer_id
+        return trainer
     else:
         print("Trainer not found. Please register first.")
         return None
