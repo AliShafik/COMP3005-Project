@@ -2,6 +2,7 @@
 
 **Video Demo**
 - **Video Link:** 
+https://youtu.be/DJxr9O6kN44
 
 ## **How To Run**
 - **Entry point:** `app/main.py` (starts the terminal UI and initialises the DB)

@@ -465,6 +465,8 @@ def billing_management_flow(session: Session):
 				print("Billing record not found.")
 		elif sub == "3":
 			admin_functions.view_billings(session)
+		elif sub == "4":
+			break
 		else:
 			print("Invalid")
 		input("Press Enter to continue...")
