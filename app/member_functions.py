@@ -20,7 +20,7 @@ def login_member(session: Session, name: str):
     member = session.query(Member).filter(Member.name == name).first()
     if member:
         print(f"Welcome back, {member.name}!")
-        return member.member_id
+        return member
     else:
         print("Member not found. Please register first.")
         return None
@@ -50,93 +50,84 @@ def update_personal_details(session: Session, id: int, name="null", date_of_birt
         session.commit()
     return
 
-def view_fitness_goals(session: Session, member_id: int):
-    goals = session.query(HealthGoal).filter(HealthGoal.member_id == member_id).all()
-    for i, goal in enumerate(goals):
-        goal_type = session.query(GoalType).filter(GoalType.goal_type_id == goal.goal_type_id).first()
-        print(f"Goal {i + 1}: {goal_type.description} (target: {goal_type.target})")
+def view_fitness_goals(session: Session, member: Member):
+    if not member:
+        print("Member not found.")
+        return
 
-def add_fitness_goals(session: Session, member_id: int, description: str, target: str):
+    for i, goal in enumerate(member.goals):
+        print(f"Goal {i + 1}: {goal.goal_type.description} (target: {goal.goal_type.target})")
+
+def add_fitness_goals(session: Session, member: Member, description: str, target: str):
+    if not member:
+        print("Member not found.")
+        return
+    
     goal_type = GoalType(description=description, target=target)
     session.add(goal_type)
     session.flush()
-    goal_type_id = goal_type.goal_type_id
-    goal = HealthGoal(member_id=member_id, goal_type_id=goal_type_id)
+
+    goal = HealthGoal(member=member, goal_type=goal_type)
     session.add(goal)
     session.commit()
 
-def update_fitness_goals(session: Session, user_index: int, member_id:int, goal_id: int, target: str):
-    goal = session.query(HealthGoal).filter(HealthGoal.member_id == member_id).all()[user_index - 1]
-    goal_type = session.query(GoalType).filter(GoalType.goal_type_id == goal.goal_type_id).first() 
-    goal_type.target = target
+def update_fitness_goals(session: Session, user_index: int, member: Member, goal_id: int, target: str):
+    if not member:
+        print("Member not found.")
+        return
+    if user_index - 1 >= len(member.goals):
+        print("Goal index out of range.")
+        return
+    
+    goal = member.goals[user_index - 1]
+    goal.goal_type.target = target
     session.commit()
     
-def input_health_metric(session: Session, member_id: int, date_recorded: date, weight: float, height: float, heart_rate: int):
-    healthMetric = HealthMetric(member_id=member_id, date_recorded=date_recorded, weight=weight, height=height, heart_rate=heart_rate)
+def input_health_metric(session: Session, member: Member, date_recorded: date, weight: float, height: float, heart_rate: int):
+    if not member:
+        print("Member not found.")
+        return
+    
+    healthMetric = HealthMetric(member=member, date_recorded=date_recorded, weight=weight, height=height, heart_rate=heart_rate)
     session.add(healthMetric)
     session.commit()
 
-def dashboard(session: Session, member_id: int) -> None:
+def dashboard(session: Session, member: Member) -> None:
+    if not member:
+        print("Member not found.")
+        return
     now = datetime.now()
 
     # 1) Latest 5 health stats (most recent first)
-    latest_metrics = (
-        session.query(HealthMetric)
-        .filter(HealthMetric.member_id == member_id)
-        .order_by(HealthMetric.date_recorded.desc())
-        .limit(5)
-        .all()
-    )
+    latest_metrics = sorted(member.health_metrics, key=lambda m: m.date_recorded, reverse=True)[:5]
 
     # 2) Active goals (all HealthGoal rows for this member, joined to GoalType for details)
-    active_goals = (
-        session.query(HealthGoal, GoalType)
-        .join(GoalType, HealthGoal.goal_type_id == GoalType.goal_type_id)
-        .filter(HealthGoal.member_id == member_id)
-        .all()
-    )
+    active_goals = []
+    for goal in member.goals:
+        active_goals.append((goal, goal.goal_type))
 
     # 3) Past class count:
     #    GroupMember → FitnessClass → RoomBooking, where the booking has already ended
-    past_class_count = (
-        session.query(GroupMember)
-        .join(FitnessClass, GroupMember.class_id == FitnessClass.class_id)
-        .join(RoomBooking, FitnessClass.booking_id == RoomBooking.booking_id)
-        .filter(
-            GroupMember.member_id == member_id,
-            RoomBooking.end_time < now
-        )
-        .count()
-    )
+    past_class_count = 0
+    for group_member in member.group_classes:
+        if group_member.fitness_class.booking.end_time < now:
+            past_class_count += 1
 
     # 4) Upcoming sessions:
     #    TrainingSession for this member, with a RoomBooking whose start_time is in the future
-    upcoming_sessions = (
-        session.query(TrainingSession, RoomBooking, Trainer)
-        .join(RoomBooking, TrainingSession.booking_id == RoomBooking.booking_id)
-        .join(Trainer, TrainingSession.trainer_id == Trainer.trainer_id)
-        .filter(
-            TrainingSession.member_id == member_id,
-            RoomBooking.start_time >= now
-        )
-        .order_by(RoomBooking.start_time.asc())
-        .all()
-    )
+    upcoming_sessions = []
+    for training_session in member.training_sessions:
+        if training_session.booking.start_time >= now:
+            upcoming_sessions.append(training_session)
+    upcoming_sessions.sort(key=lambda training_session: training_session.booking.start_time)
 
     # 5) Upcoming group classes:
     #    GroupMember → FitnessClass → RoomBooking (+ Trainer), where start_time is in the future
-    upcoming_classes = (
-        session.query(FitnessClass, RoomBooking, Trainer)
-        .join(GroupMember, GroupMember.class_id == FitnessClass.class_id)
-        .join(RoomBooking, FitnessClass.booking_id == RoomBooking.booking_id)
-        .join(Trainer, FitnessClass.trainer_id == Trainer.trainer_id)
-        .filter(
-            GroupMember.member_id == member_id,
-            RoomBooking.start_time >= now
-        )
-        .order_by(RoomBooking.start_time.asc())
-        .all()
-    )
+    upcoming_classes = []
+    for group_member in member.group_classes:
+        if group_member.fitness_class.booking.start_time >= now:
+            upcoming_classes.append(group_member.fitness_class)
+    upcoming_classes.sort(key=lambda fc: fc.booking.start_time)
     
     # ==== PRINT DASHBOARD (terminal UI can format this however you like) ====
     print("\n====== DASHBOARD ======")
@@ -166,20 +157,20 @@ def dashboard(session: Session, member_id: int) -> None:
     if not upcoming_sessions:
         print("  No upcoming sessions.")
     else:
-        for ts, booking, trainer in upcoming_sessions:
+        for training_session in upcoming_sessions:
             print(
-                f"  {booking.start_time}–{booking.end_time} "
-                f"with {trainer.name} (session_id={ts.session_id})"
+                f"  {training_session.booking.start_time}–{training_session.booking.end_time} "
+                f"with {training_session.trainer.name} (session_id={training_session.session_id})"
             )
 
     print("\nUpcoming Group Classes:")
     if not upcoming_classes:
         print("  No upcoming classes.")
     else:
-        for fitness_class, booking, trainer in upcoming_classes:
+        for fitness_class in upcoming_classes:
             print(
-                f"  {booking.start_time}–{booking.end_time} "
-                f"{fitness_class.class_name} with {trainer.name} "
+                f"  {fitness_class.booking.start_time}–{fitness_class.booking.end_time} "
+                f"{fitness_class.class_name} with {fitness_class.trainer.name} "
                 f"(class_id={fitness_class.class_id})"
             )
     print("=======================\n")
@@ -189,112 +180,69 @@ def dashboard(session: Session, member_id: int) -> None:
 # DEFAULT_ADMIN_ID_FOR_BOOKINGS = 1  # adjust if needed
 
 def view_room_bookings(session: Session):
-    bookings = (session.query(RoomBooking, Room).join(Room, RoomBooking.room_id == Room.room_id).filter().order_by(RoomBooking.start_time.asc()).all())
-
+    bookings = session.query(RoomBooking).order_by(RoomBooking.start_time.asc()).all()
     #If no bookings found
     if not bookings:
         print("No room bookings found in the specified time range.")
         return
 
-    for booking, room in bookings:
+    for booking in bookings:
         print(
             f"Booking ID: {booking.booking_id}, "
-            f"Room: {room.room_name}, "
+            f"Room: {booking.room.room_name}, "
             f"Booked: {booking.is_booked}, "
             f"Start: {booking.start_time}, "
             f"End: {booking.end_time}"
         )
 
-def view_pt_sessions(session: Session, member_id: int):
-    sessions = (
-        session.query(TrainingSession, RoomBooking, Trainer)
-        .join(RoomBooking, TrainingSession.booking_id == RoomBooking.booking_id)
-        .join(Trainer, TrainingSession.trainer_id == Trainer.trainer_id)
-        .filter(TrainingSession.member_id == member_id)
-        .order_by(RoomBooking.start_time.asc())
-        .all()
-    )
-
-    if not sessions:
+def view_pt_sessions(session: Session, member: Member):
+    pt_sessions = session.query(TrainingSession).filter(TrainingSession.member == member).all()
+    if not pt_sessions:
         print("No PT sessions found.")
         return
+    pt_sessions.sort(key=lambda ts: ts.booking.start_time)
 
-    for ts, booking, trainer in sessions:
+    for training_session in pt_sessions:
         print(
-            f"Session ID: {ts.session_id}, "
-            f"Trainer: {trainer.name}, "
-            f"Start: {booking.start_time}, "
-            f"End: {booking.end_time}"
+            f"Session ID: {training_session.session_id}, "
+            f"Trainer: {training_session.trainer.name}, "
+            f"Start: {training_session.booking.start_time}, "
+            f"End: {training_session.booking.end_time}"
         )
 
-def book_pt_session(
-    session: Session,
-    member_id: int,
-    trainer_id: int,
-    booking_id: int
-):
-
-    # 2) Check booking exists
-    booking = (
-        session.query(RoomBooking)
-        .filter(RoomBooking.booking_id == booking_id)
-        .first()
-    )
+def book_pt_session(session: Session, member: Member, trainer: Trainer, booking: RoomBooking):
+    if not member or not trainer or not booking:
+        print("Member, Trainer or Booking not found")
+        return None
 
     # 3) Use booking's time window as the PT session time
     desired_start = booking.start_time
     desired_end = booking.end_time
 
     # 4) Check trainer availability for that whole time window
-    availability = (
-        session.query(Availability)
-        .filter(
-            Availability.trainer_id == trainer_id,
-            Availability.start_time <= desired_start,
-            Availability.end_time >= desired_end,
-        )
-        .first()
-    )
-    if availability is None:
+    for availability in trainer.availability:
+        if availability.start_time <= desired_start and availability.end_time >= desired_end:
+            break
+    else:
         print("Trainer is not available for that booking time.")
         return None
 
     # 5) Check for conflicts with other PT sessions
-    trainer_pt_conflict = (
-        session.query(TrainingSession)
-        .join(RoomBooking, TrainingSession.booking_id == RoomBooking.booking_id)
-        .filter(
-            TrainingSession.trainer_id == trainer_id,
-            RoomBooking.start_time < desired_end,
-            RoomBooking.end_time > desired_start,
-        )
-        .first()
-    )
-    if trainer_pt_conflict is not None:
-        print("Trainer already has another PT session at that time.")
-        return None
+    for training_session in trainer.sessions:
+        other = training_session.booking
+        if other.start_time < desired_end and other.end_time > desired_start:
+            print("Trainer already has another PT session at that time.")
+            return None
 
     # 6) Check for conflicts with fitness classes
-    trainer_class_conflict = (
-        session.query(FitnessClass)
-        .join(RoomBooking, FitnessClass.booking_id == RoomBooking.booking_id)
-        .filter(
-            FitnessClass.trainer_id == trainer_id,
-            RoomBooking.start_time < desired_end,
-            RoomBooking.end_time > desired_start,
-        )
-        .first()
-    )
-    if trainer_class_conflict is not None:
-        print("Trainer is teaching a class at that time.")
-        return None
+    for fitness_class in trainer.classes:
+        other = fitness_class.booking
+        if other.start_time < desired_end and other.end_time > desired_start:
+            print("Trainer is teaching a class at that time.")
+            return None
 
     # 7) All good → create the PT session tied to that booking
-    pt_session = TrainingSession(
-        trainer_id=trainer_id,
-        booking_id=booking.booking_id,
-        member_id=member_id,
-    )
+    pt_session = TrainingSession(trainer=trainer, booking=booking, member=member)
 
     session.add(pt_session)
     session.commit()
@@ -325,23 +273,21 @@ def view_available_classes(session: Session):
     for fitness_class in classes:
         print(fitness_class)
 
-def class_registration(session: Session, member_id: int, class_id: int): 
-    fitness_class = session.query(FitnessClass).filter(FitnessClass.class_id == class_id).first()
-    if fitness_class is None:
-        print("Class not found.")
+def class_registration(session: Session, member: Member, fitness_class: FitnessClass):     
+    if not member or not fitness_class:
+        print("Member or class not found.")
         return False
 
-    already = session.query(GroupMember).filter(GroupMember.class_id == class_id, GroupMember.member_id == member_id).first()
-    if already:
+    if any(group_member.member == member for group_member in fitness_class.members):
         print("Member is already signed up for this class.")
         return False
-
+    
     if fitness_class.num_signed_up >= fitness_class.capacity:
         print("Class is full.")
         return False
 
     fitness_class.num_signed_up += 1
-    group_member = GroupMember(class_id=class_id, member_id=member_id)
+    group_member = GroupMember(fitness_class=fitness_class, member=member)
     session.add(group_member)
     session.commit()
     return fitness_class

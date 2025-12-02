@@ -32,49 +32,58 @@ def view_trainers(session: Session):
         print(trainer)
 
 #View availability for trainer
-def view_availability(session: Session, trainer_id: int):
-    availabilities = session.query(Availability).filter(Availability.trainer_id == trainer_id).all()
-    for availability in availabilities:
+def view_availability(session: Session, trainer: Trainer):
+    if not trainer:
+        print("Trainer not found")
+        return
+
+    for availability in trainer.availability:
         print(availability)
 
 #Add availability for trainer
-def set_availability(session: Session, trainer_id: int, start_time: str, end_time: str, is_recurring: bool):
+def set_availability(session: Session, trainer: Trainer, start_time: str, end_time: str, is_recurring: bool):
     start_time = datetime.fromisoformat(start_time)
     end_time = datetime.fromisoformat(end_time)
 
-    # Query for any overlapping availability
-    conflict = session.query(Availability).filter(Availability.trainer_id == trainer_id, Availability.start_time < end_time, Availability.end_time > start_time).first()
-    if conflict:
-        print("Error: This availability conflicts with an existing time block:")
-        print(f"Existing: {conflict.start_time} → {conflict.end_time}")
+    if not trainer:
+        print("Trainer not found")
         return
-
-    availability = Availability(trainer_id=trainer_id, start_time=start_time, end_time=end_time, is_recurring=is_recurring)
+    
+    for availability in trainer.availability:
+        if start_time < availability.end_time and end_time > availability.start_time:
+            print("Error: Conflict with:", availability)
+            return
+        
+    availability = Availability(trainer=trainer, start_time=start_time, end_time=end_time, is_recurring=is_recurring)
     session.add(availability)
     session.commit()
     print("Availability set.")
 
 #View schedule for trainer
-def schedule_view(session: Session, trainer_id: int):
-    all_training_sessions = session.query(TrainingSession).filter(TrainingSession.trainer_id == trainer_id).all()
-    all_fitness_classes = session.query(FitnessClass).filter(FitnessClass.trainer_id == trainer_id).all()
+def schedule_view(session: Session, trainer: Trainer):
+    if not trainer:
+        print("Trainer not found")
+        return
 
-    #Print results
-    for sessions in all_training_sessions:
-        print(sessions)
-    for classes in all_fitness_classes:
-        print(classes)
+    # All training sessions
+    for training_session in trainer.sessions:
+        print(training_session)
+
+    # All fitness classes
+    for fitness_class in trainer.classes:
+        print(fitness_class)
     
 #Show goal and latest health metric for member
 def member_lookup(session: Session, member_name: str):
-    member_id = session.query(Member).filter(Member.name == member_name).first().member_id
-
+    member = session.query(Member).filter(Member.name == member_name).first()
+    if not member:
+        print("Member not found")
+        return
+    
     #Get goals
-    goal_id = session.query(HealthGoal).filter(HealthGoal.member_id == member_id).all()
-    for id in goal_id:
-        goal_type = session.query(GoalType).filter(GoalType.goal_type_id == id.goal_type_id).first()
-        print("Goal: ", goal_type)
+    for goal in member.goals:
+        print("Goal:", goal.goal_type)
 
-    #Get latest health metric
-    health_metric = session.query(HealthMetric).filter(HealthMetric.member_id == member_id).order_by(HealthMetric.date_recorded.desc()).first()
-    print("Latest Health Metric: ", health_metric)
+    #Get health metrics
+    latest_metric = max(member.health_metrics, key=lambda m: m.date_recorded, default=None)
+    print("Latest Health Metric:", latest_metric)

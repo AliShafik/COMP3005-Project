@@ -5,7 +5,7 @@ import trainer_functions
 import admin_functions
 from sqlalchemy.orm import Session
 from datetime import datetime, date
-from models.schemas import Admin, Trainer, Member
+from models.schemas import Admin, Trainer, Member, RoomBooking, FitnessClass
 
 def clear_screen():
 	if os.name == "nt":
@@ -97,9 +97,9 @@ def member_flow(session: Session):
 			member_functions.register_member(session, name, dob, gender, contact)
 		elif choice == "2":
 			name = prompt("Enter your username", True)
-			member_id = member_functions.login_member(session, name)
-			if member_id:
-				member_dashboard(session, member_id)
+			member = member_functions.login_member(session, name)
+			if member:
+				member_dashboard(session, member)
 		elif choice == "0":
 			break
 		else:
@@ -120,15 +120,16 @@ def trainer_flow(session: Session):
 		elif choice == "2":
 			name = prompt("Enter your username", True)
 			trainer_id = trainer_functions.login_trainer(session, name)
-			if trainer_id:
-				trainer_dashboard(session, trainer_id)
+			trainer = session.get(Trainer, trainer_id)
+			if trainer:
+				trainer_dashboard(session, trainer)
 		elif choice == "0":
 			break
 		else:
 			print("Invalid")
 			time.sleep(0.6)
 
-def member_dashboard(session: Session, member_id: int):
+def member_dashboard(session: Session, member: Member):
 	while True:
 		clear_screen()
 		print("Member Dashboard")
@@ -140,28 +141,28 @@ def member_dashboard(session: Session, member_id: int):
 		print("0) Logout")
 		c = prompt("Choice")
 		if c == "1":
-			member_functions.dashboard(session, member_id)
+			member_functions.dashboard(session, member)
 		elif c == "2":
 			weight = prompt("Enter weight (kg)", required=False)
 			height = prompt("Enter height (cm)", required=False)
 			heart_rate = prompt("Enter heart rate (bpm)", required=False)
 			current_date = datetime.today().isoformat()
-			member_functions.input_health_metric(session, member_id, current_date, weight, height, heart_rate)
+			member_functions.input_health_metric(session, member, current_date, weight, height, heart_rate)
 		elif c == "3":
-			manage_goal_flow(session, member_id)
+			manage_goal_flow(session, member)
 		elif c == "4":
-			manage_pt_session_flow(session, member_id)
+			manage_pt_session_flow(session, member)
 		elif c == "5":
-			register_fitness_class_flow(session, member_id)
+			register_fitness_class_flow(session, member)
 		elif c == "0":
 			break
 		else:
 			print("Invalid")
 		input("Press Enter to continue...")
 
-def manage_goal_flow(session: Session, member_id: int):
+def manage_goal_flow(session: Session, member: Member):
 	print("Current Fitness Goals:")
-	member_functions.view_fitness_goals(session, member_id)
+	member_functions.view_fitness_goals(session, member)
 	while True:
 		choice = prompt("Add a fitness goal? (y/n)", required=True).lower()
 		if choice in ("n", "no"):
@@ -169,49 +170,41 @@ def manage_goal_flow(session: Session, member_id: int):
 		if choice in ("y", "yes"):
 			description = prompt("Enter goal description", required=True)
 			target = prompt("Enter goal target", required=True)
-			member_functions.add_fitness_goals(session, member_id, description, target)
+			member_functions.add_fitness_goals(session, member, description, target)
 		else:
 			print("Invalid")
 
-def manage_pt_session_flow(session: Session, member_id: int):
-    print("Manage Personal Training Sessions")
-    member_functions.view_pt_sessions(session, member_id)
+def manage_pt_session_flow(session: Session, member: Member):
+	print("Manage Personal Training Sessions")
+	member_functions.view_pt_sessions(session, member)
 
-    while True:
-        choice = prompt("Book a PT session? (y/n)", required=True).lower()
+	while True:
+		choice = prompt("Book a PT session? (y/n)", required=True).lower()
 
-        if choice in ("n", "no"):
-            break
+		if choice in ("n", "no"):
+			break
 
-        if choice in ("y", "yes"):
-            print("Available trainers:")
-            trainer_functions.view_trainers(session)
-            trainer_id = prompt_int("Trainer ID", required=True)
+		if choice in ("y", "yes"):
+			print("Available trainers:")
+			trainer_functions.view_trainers(session)
+			trainer_id = prompt_int("Trainer ID", required=True)
+			trainer = session.get(Trainer, trainer_id)
+			print("Available room bookings:")
+			# assumes this shows future/free bookings, or all bookings
+			member_functions.view_room_bookings(session)
 
-            print("Available room bookings:")
-            # assumes this shows future/free bookings, or all bookings
-            member_functions.view_room_bookings(session)
+			booking_id = prompt_int("Choose a booking ID from the above available room bookings", required=True)
+			booking = session.get(RoomBooking, booking_id)
+			pt_session = member_functions.book_pt_session(session=session, member=member, trainer=trainer, booking=booking)
 
-            booking_id = prompt_int(
-                "Choose a booking ID from the above available room bookings",
-                required=True,
-            )
+			if pt_session:
+				print("PT session booked (id:", getattr(pt_session, "session_id", None), ")")
+			else:
+				print("Unable to book PT session — conflict or error.")
+		else:
+			print("Invalid")
 
-            pt_session = member_functions.book_pt_session(
-                session=session,
-                member_id=member_id,
-                trainer_id=trainer_id,
-                booking_id=booking_id,
-            )
-
-            if pt_session:
-                print("PT session booked (id:", getattr(pt_session, "session_id", None), ")")
-            else:
-                print("Unable to book PT session — conflict or error.")
-        else:
-            print("Invalid")
-
-def register_fitness_class_flow(session: Session, member_id: int):
+def register_fitness_class_flow(session: Session, member: Member):
 	print("Register for Fitness Classes")
 	member_functions.view_available_classes(session)
 	while True:
@@ -220,14 +213,15 @@ def register_fitness_class_flow(session: Session, member_id: int):
 			break
 		if choice in ("y", "yes"):
 			class_id = prompt_int("Class ID", required=True)
-			success = member_functions.class_registration(session, member_id, class_id)
+			fitness_class = session.get(FitnessClass, class_id)
+			success = member_functions.class_registration(session, member, fitness_class)
 			if success:
 				print("Registered for class.")
 			else:
 				print("Unable to register — class may be full")
 
 # Trainer UI
-def trainer_dashboard(session: Session, trainer_id: int):
+def trainer_dashboard(session: Session, trainer: Trainer):
 	while True:
 		clear_screen()
 		print("Trainer Menu")
@@ -237,9 +231,9 @@ def trainer_dashboard(session: Session, trainer_id: int):
 		print("0) Back")
 		c = prompt("Choice")
 		if c == "1":
-			availability_flow(session, trainer_id)
+			availability_flow(session, trainer)
 		elif c == "2":
-			trainer_functions.schedule_view(session, trainer_id)
+			trainer_functions.schedule_view(session, trainer)
 			input("Press Enter to continue...")
 		elif c == "3":
 			name = prompt("Member name to lookup")
@@ -251,9 +245,9 @@ def trainer_dashboard(session: Session, trainer_id: int):
 			print("Invalid")
 			input("Press Enter to continue...")
 
-def availability_flow(session: Session, trainer_id: int):
+def availability_flow(session: Session, trainer: Trainer):
 	print("Current Availability:")
-	trainer_functions.view_availability(session, trainer_id)
+	trainer_functions.view_availability(session, trainer)
 	while True:
 		more = prompt("Add more availability? (y/n)", required=True).lower()
 		if more in ("n", "no"):
@@ -262,7 +256,7 @@ def availability_flow(session: Session, trainer_id: int):
 			start_time = prompt("Start (YYYY-MM-DD HH:MM)")
 			end_time = prompt("End (YYYY-MM-DD HH:MM)")
 			rec = prompt("Recurring? (y/n)", required=True).lower() in ("y", "yes")
-			trainer_functions.set_availability(session, trainer_id, start_time, end_time, rec)
+			trainer_functions.set_availability(session, trainer, start_time, end_time, rec)
 		else:
 			print("Invalid")
 		input("Press Enter to continue...")
